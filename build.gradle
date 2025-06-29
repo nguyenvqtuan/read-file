@@ -1,0 +1,54 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.5.3'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	runtimeOnly 'com.mysql:mysql-connector-j'
+	
+	// Google Drive API dependencies
+	implementation 'com.google.apis:google-api-services-drive:v3-rev20231128-2.0.0'
+	implementation 'com.google.auth:google-auth-library-oauth2-http:1.19.0'
+	implementation 'com.google.auth:google-auth-library-credentials:1.19.0'
+	// Add missing Google OAuth Client dependencies for AuthorizationCodeInstalledApp and LocalServerReceiver
+	implementation 'com.google.oauth-client:google-oauth-client-java6:1.34.1'
+	implementation 'com.google.oauth-client:google-oauth-client-jetty:1.34.1'
+	
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testRuntimeOnly 'com.h2database:h2'
+	// Reference Library project if needed (uncomment and adjust path if using as a module)
+	// implementation project(':path_to_Library_module')
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// Add a task to run MySQL in Docker for local development
+// Usage: ./gradlew mysqlRun
+import org.gradle.api.tasks.Exec
+
+task mysqlRun(type: Exec) {
+	commandLine 'docker', 'run', '--name', 'readfile-mysql', '-e', 'MYSQL_ROOT_PASSWORD=root', '-e', 'MYSQL_DATABASE=readfile_db', '-p', '3307:3306', '-d', 'mysql:8.0'
+}
+
+task mysqlStop(type: Exec) {
+	commandLine 'docker', 'rm', '-f', 'readfile-mysql'
+}

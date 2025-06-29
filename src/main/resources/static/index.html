@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Drive File Reader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #357abd;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .file-item {
+            padding: 10px;
+            border: 1px solid #eee;
+            margin: 5px 0;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+        .file-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google Drive File Reader</h1>
+        
+        <div class="section">
+            <h3>List Files</h3>
+            <button onclick="listFiles()">List Files from Google Drive</button>
+            <div id="fileList" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Search Files</h3>
+            <input type="text" id="searchFileName" placeholder="Enter file name to search">
+            <button onclick="searchFiles()">Search Files</button>
+            <div id="searchResults" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Get File Content</h3>
+            <input type="text" id="fileId" placeholder="Enter Google Drive File ID">
+            <button onclick="getFileContent()">Get File Content</button>
+            <button onclick="downloadFile()">Download File</button>
+            <div id="fileContent" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Get File Metadata</h3>
+            <input type="text" id="metadataFileId" placeholder="Enter Google Drive File ID">
+            <button onclick="getFileMetadata()">Get File Metadata</button>
+            <div id="fileMetadata" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h3>Import Users from Google Drive CSV</h3>
+            <input type="text" id="importFileId" placeholder="Enter Google Drive CSV File ID">
+            <button onclick="importUsers()">Import Users</button>
+            <div id="importResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/drive';
+
+        async function makeRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Error:', error);
+                return { error: error.message };
+            }
+        }
+
+        async function listFiles() {
+            const result = await makeRequest(`${API_BASE}/files`);
+            const fileListDiv = document.getElementById('fileList');
+            
+            if (result.error) {
+                fileListDiv.textContent = `Error: ${result.error}`;
+                return;
+            }
+            
+            if (result.length === 0) {
+                fileListDiv.textContent = 'No files found';
+                return;
+            }
+            
+            const fileList = result.map(file => 
+                `<div class="file-item">
+                    <strong>Name:</strong> ${file.name}<br>
+                    <strong>ID:</strong> ${file.id}<br>
+                    <strong>Type:</strong> ${file.mimeType}<br>
+                    <strong>Size:</strong> ${file.size ? (file.size / 1024).toFixed(2) + ' KB' : 'Unknown'}
+                </div>`
+            ).join('');
+            
+            fileListDiv.innerHTML = fileList;
+        }
+
+        async function searchFiles() {
+            const fileName = document.getElementById('searchFileName').value;
+            if (!fileName) {
+                alert('Please enter a file name to search');
+                return;
+            }
+            
+            const result = await makeRequest(`${API_BASE}/search?fileName=${encodeURIComponent(fileName)}`);
+            const searchResultsDiv = document.getElementById('searchResults');
+            
+            if (result.error) {
+                searchResultsDiv.textContent = `Error: ${result.error}`;
+                return;
+            }
+            
+            if (result.length === 0) {
+                searchResultsDiv.textContent = 'No files found matching the search criteria';
+                return;
+            }
+            
+            const fileList = result.map(file => 
+                `<div class="file-item">
+                    <strong>Name:</strong> ${file.name}<br>
+                    <strong>ID:</strong> ${file.id}<br>
+                    <strong>Type:</strong> ${file.mimeType}<br>
+                    <strong>Size:</strong> ${file.size ? (file.size / 1024).toFixed(2) + ' KB' : 'Unknown'}
+                </div>`
+            ).join('');
+            
+            searchResultsDiv.innerHTML = fileList;
+        }
+
+        async function getFileContent() {
+            const fileId = document.getElementById('fileId').value;
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/files/${fileId}/content`);
+                const content = await response.text();
+                document.getElementById('fileContent').textContent = content;
+            } catch (error) {
+                document.getElementById('fileContent').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function downloadFile() {
+            const fileId = document.getElementById('fileId').value;
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+            
+            window.open(`${API_BASE}/files/${fileId}/download`, '_blank');
+        }
+
+        async function getFileMetadata() {
+            const fileId = document.getElementById('metadataFileId').value;
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+            
+            const result = await makeRequest(`${API_BASE}/files/${fileId}/metadata`);
+            const metadataDiv = document.getElementById('fileMetadata');
+            
+            if (result.error) {
+                metadataDiv.textContent = `Error: ${result.error}`;
+                return;
+            }
+            
+            metadataDiv.textContent = JSON.stringify(result, null, 2);
+        }
+
+        async function importUsers() {
+            const fileId = document.getElementById('importFileId').value;
+            if (!fileId) {
+                alert('Please enter a file ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/files/${fileId}/import-users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.text();
+                document.getElementById('importResult').textContent = result;
+            } catch (error) {
+                document.getElementById('importResult').textContent = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 
